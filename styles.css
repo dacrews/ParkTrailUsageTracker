@@ -1,0 +1,113 @@
+#mymap {
+    position: absolute; top: 0; bottom: 0; left: 0; right: 0;
+}
+
+#mymap {
+    display: block;
+    top: 55px;
+    background-color: white;
+}
+
+.tableRow {
+    margin: 5px;
+}
+
+input, select, #submitButton, #newButton, #visitorLocation {
+    width: 150px;
+    height: 25px;
+    text-align: center;
+    border-radius: 5px;
+    border-width: 1px;
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+input, select {
+    width: auto;
+}
+
+#submitButton, #newButton {
+    display: inline-block;
+    width: 100px;
+    margin-left: 30px;
+    margin-top: 35px !important;
+    position: absolute;
+    left: 115px;
+}
+
+#formContainer{
+    font-size: medium;
+    border-radius: 10px;
+    background-color: rgba(109, 129, 161, 0.9);
+    padding: 10px;
+}
+
+#trackerSidebar, #infoSidebar, #statsSidebar {
+    background-image: url("img/side_img.jpeg");
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    border-radius: 10px;
+    border: none;
+}
+
+#trackerSidebar {
+    text-align: left;
+    width: 85%;
+    left: 15%;
+    background-size: cover;
+    background-position: center;
+}
+
+#infoContainer {
+    border-radius: 10px;
+    background-color: rgba(109, 129, 161, 0.9);
+    /* rgba(175, 175, 175, 0.699); */
+    width: 100%;
+}
+
+#infoContent {
+    color: white;
+    padding: 10px;
+}
+
+#header {
+    font-weight: bold;
+    font-size: 25px;
+    color: rgb(3, 231, 14);
+    display: inline-block;
+}
+
+body{
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    background-color: rgba(4, 25, 42);
+    height: 50px;
+    margin-top: 0px !important;
+}
+
+.close {
+    display: none;
+}
+
+.sidebarTitle {
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    text-shadow: 1px 1px #A9A9A9;
+}
+
+.inputLabel {
+    color: white;
+}
+
+#visitorLocation {
+    background-color: white;
+}
+
+#barChart {
+    background-color: rgba(109, 129, 161, 0.9);
+    border-radius: 5px;
+    margin: 5px;
+    padding: 5px;
+    color: white;
+}

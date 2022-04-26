@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Park Usage Tracker</title>
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css"/>
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="plugins/leaflet.css"/>
+    <script src="plugins/leaflet.js"></script>
+    <!-- JQuery -->
+    <script
+        src="https://code.jquery.com/jquery-3.6.0.min.js"
+        integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4="
+        crossorigin="anonymous"></script>
+    <!-- Font Awesome -->
+    <script defer src="https://use.fontawesome.com/releases/v6.0.0/js/all.js" integrity="sha384-l+HksIGR+lyuyBo1+1zCBSRt6v4yklWu7RbG0Cv+jDLDD9WFcEIwZLHioVB4Wkau" crossorigin="anonymous"></script>
+    <!-- Leaflet Plugins -->
+    <link rel="stylesheet" href="plugins/L.Control.Sidebar.css">
+    <script src="plugins/L.Control.Sidebar.js"></script>
+    <link rel="stylesheet" href="plugins/easy-button.css">
+    <script src="plugins/easy-button.js"></script>
+    <link rel="stylesheet" href="plugins/L.Control.Basemaps.css">
+    <script src="plugins/L.Control.Basemaps.js"></script>
+    <script src="https://unpkg.com/esri-leaflet@3.0.2/dist/esri-leaflet.js"
+    integrity="sha512-myckXhaJsP7Q7MZva03Tfme/MSF5a6HC2xryjAM4FxPLHGqlh5VALCbywHnzs2uPoF/4G/QVXyYDDSkp5nPfig=="
+    crossorigin=""></script>
+    <script src="plugins/leaflet.ajax.min.js"></script>
+    <link rel="stylesheet" href="plugins/leaflet.draw.css">
+    <script src="plugins/leaflet.draw.js"></script>
+    <link rel="stylesheet" href="plugins/leaflet.legend.css">
+    <script src="plugins/leaflet.legend.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- <img src="img/City_of_Raleigh_logo.svg.png" alt="Raleigh Logo" style="height: 40px; width: 110px; margin-top: 8px;"> -->
+
+    <div id="mymap"></div>
+
+    <!-- Sidebar Content -->
+    <div id="trackerSidebar">
+        <h1 class="sidebarTitle">Record your visit!</h1>
+        <div id="formContainer">
+            <form action="send_visit.php" method="post">
+                <p class="inputLabel">First Name: * <input type="text" id="visitor_Fname" name="visitor_Fname" required></p>
+                <p class="inputLabel">Last Name: * <input type="text" id="visitor_Lname" name="visitor_Lname" required></p>
+                <p class="inputLabel">Park Name: * <input type="text" id="parkSelect" name="parkSelect" required READONLY></p>
+                <p class="inputLabel">Activity: * <select id="activitySelect" class="form-control" name="activitySelect" required>
+                    <option value="Select">Select</option>
+                    <option value="Hike">Hike</option>
+                    <option value="Run">Run</option>
+                    <option value="Walk">Walk</option>
+                    <option value="Bike">Bike</option>
+                    <option value="Picnic">Picnic</option>
+                    <option value="Playground">Playground</option>
+                    <option value="Sport">Sport</option>
+                    <option value="Water">Water Related Activity</option>
+                    <option value="Other">Other</option>
+                </select></p>
+                <p class="inputLabel">Location: * <button type="button" id="visitorLocation" onclick="dropMarker()">Add</button>
+                    <input type="text" id="markerLat" name="markerLat" style="display: none; background-color: lightgreen;" required READONLY>
+                    <input type="text" id="markerLng" name="markerLng" style="display: none; background-color: lightgreen;" required READONLY>
+                </p>
+                <button type="submit" id="submitButton" name="submit" value="submit" onclick="submitRecord()">Submit!</button>
+            </form>
+        </div>
+        
+    </div>
+    <div id="infoSidebar">
+        <h1 class="sidebarTitle">Raleigh Park and Trail Usage Tracker</h1>
+        <div  id="infoContainer">
+            <h3 id="infoContent">
+                This application is used to collect data from park visitors that will allow Raleigh's Parks, Recreation, and Cultural Resources Department to visualize and quantify park utilization. Having this data can assist with maintenance, resource, and budget allocation.
+            </h3>
+            <h3 id="infoContent">
+                How to Record a Visit:<br>
+                <ul>
+                    <li>Click the <img src="img/visitIcon.PNG" alt="Record Visit Button"> button.</li>
+                    <br>
+                    <li>Fill in your first and last name.</li>
+                    <br>
+                    <li>To select the park or trail name, click the park or trail on the map. The name will be automatically input once it is clicked.</li>
+                    <br>
+                    <li>Select your activity from the dropdown list.</li>
+                    <br>
+                    <li>Click the "Add" button and then click the approximate location of your activity on the map.</li>
+                    <br>
+                    <li>Click submit! Once the submit button is clicked, the page will refresh and you should see your visit displayed on the map.</li>
+                </ul>
+            </h3>
+        </div>
+    </div>
+    <div id="statsSidebar">
+        <h1 class="sidebarTitle">Statistics</h1>
+        <div id="barContent">
+            <canvas id="barChart" height="450"></canvas>
+            <p id="barChart">The data displayed above shows you which activities people most partake in. The number of visits respresent the entirety of visits to city parks AND greenway trails.</p>
+        </div>
+    </div>
+
+    <script>
+        // Variables
+        let mymap;
+        let basemaps;
+        let worldImagery;
+        let streetImagery;
+        let trackerSidebar;
+        let statsSidebar;
+        let infoSidebar;
+        let infoButton;
+        let statsButton;
+        let trackerButton;
+        let resetZoom;
+        let parkPoly;
+        let parkLine;
+        let legend;
+        let polyPopup;
+        let linePopup;
+
+        // Map initialization
+        mymap = L.map('mymap').setView([35.83, -78.61], 11.5);
+
+        // Basemaps
+        basemaps = [
+            // streetImagery = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png', {
+            //     maxZoom: 19,
+            //     attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
+            //     label: 'Street Map'
+            // }),
+            streetImagery = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }),
+
+            worldImagery =  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+	            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                label: 'World Imagery'
+            })
+        ];
+
+        // Legend
+        legend = L.control.Legend({
+            position: "bottomleft",
+            column: 3,
+            legends: [{
+                label: "City Parks",
+                type: "rectangle",
+                color: "#4682B4",
+                fillColor: "#4682B4",
+                fillOpacity: 0.3,
+                weight: 2,
+            }, {
+                label: "Greenway Trails",
+                type: "polyline",
+                color: "#008000",
+                weight: 3
+            }, {
+                label: "Your Visit",
+                type: "image",
+                url: "img/marker.png"
+            }, {
+                label: "Other",
+                type: "circle",
+                color: "#000000",
+                fillColor: "#000000",
+                weight: 3,
+                radius: 2
+            }, {
+                label: 'Hike',
+                type: "circle",
+                color: "red",
+                fillColor: "red",
+                weight: 3,
+                radius: 2
+            }, {
+                label: "Run",
+                type: "circle",
+                color: "#FFAA1D",
+                fillColor: "#FFAA1D",
+                weight: 3,
+                radius: 2
+            }, {
+                label: "Walk",
+                type: "circle",
+                color: "#FFF000",
+                fillColor: "#FFF000",
+                weight: 3,
+                radius: 2
+            }, {
+                label: "Bike",
+                type: "circle",
+                color: "#255AFF",
+                fillColor: "#255AFF",
+                weight: 3,
+                radius: 2
+            }, {
+                label: "Picnic",
+                type: "circle",
+                color: "#66FF00",
+                fillColor: "#66FF00",
+                weight: 3,
+                radius: 2
+            }, {
+                label: "Playground",
+                type: "circle",
+                color: "#BF40BF",
+                fillColor: "#BF40BF",
+                weight: 3,
+                radius: 2
+            }, {
+                label: "Sport",
+                type: "circle",
+                color: "#84FFFD",
+                fillColor: "#84FFFD",
+                weight: 3,
+                radius: 2
+            }, {
+                label: "Water Activity",
+                type: "circle",
+                color: "#966919",
+                fillColor: "#966919",
+                weight: 3,
+                radius: 2
+            }]
+        }).addTo(mymap);
+
+        // Sidebars 
+        // Tracker Sidebar
+        trackerSidebar = L.control.sidebar('trackerSidebar', {
+            position: 'right'
+        });
+
+        mymap.addControl(trackerSidebar);
+
+        // Info Sidebar
+        infoSidebar = L.control.sidebar('infoSidebar', {
+            position: 'left'
+        });
+
+        setTimeout(function () {
+            infoSidebar.show();
+        }, 500);
+
+        mymap.addControl(infoSidebar);
+
+        // Stats Sidebar
+        statsSidebar = L.control.sidebar('statsSidebar', {
+            position: 'right'
+        });
+
+        mymap.addControl(statsSidebar);
+
+        //Buttons
+        infoButton = L.easyButton('fa-solid fa-info', function(btn, mymap) {
+            infoSidebar.toggle();
+        }, 'Info').addTo(mymap);
+        
+        trackerButton = L.easyButton('fa-solid fa-pencil', function(btn, mymap) {
+            trackerSidebar.toggle();
+            statsSidebar.hide();
+        }, 'Record Visit').addTo(mymap);
+
+        statsButton = L.easyButton('fa-solid fa-chart-pie', function(btn, mymap) {
+            statsSidebar.toggle();
+            trackerSidebar.hide();
+        }, 'Statistics').addTo(mymap);
+
+        resetZoom = L.easyButton('fas fa-undo', function(btn, mymap) {
+            mymap.setView([35.83, -78.61], 11);
+        }, 'Reset Zoom').addTo(mymap);
+
+        mymap.addControl(L.control.basemaps({
+            basemaps: basemaps,
+            tileX: 0,  // tile X coordinate
+            tileY: 0,  // tile Y coordinate
+            tileZ: 1   // tile zoom level
+        }));
+
+        $('#visitorLocation').on('click', function(){
+            $(this).css('background-color', 'lightblue');
+        })
+
+        // Load polygon and line data
+        let polyStyle = {
+            color: '#4682B4',
+            fillColor: '#4682B4',
+            fillOpacity: 0.3,
+            weight: 3
+        };
+
+        let lineStyle = {
+            color: '#008000',
+            weight: 3
+        }
+        
+        let initialLoad = 0;
+        allGeom();
+        
+        function allGeom() {
+            if (initialLoad < 1) {
+                $.ajax({
+                    url: 'load_geom.php',
+                    type: 'POST',
+                    success: function(response){
+                       
+                        let lyrPoly=L.geoJSON(JSON.parse(response), {pointToLayer: function(feature,latlng) {
+                            return L.polygon(latlng);
+                        },
+                        onEachFeature: function(feature, layer) {
+                            layer.bindPopup('<h3>' + feature.properties.park_name + '</h3>', {closeButton: false});
+                            layer.on('mouseover', function(e) {
+                                this.openPopup();
+                            });
+                            layer.on('mouseout', function(e) {
+                                this.closePopup();
+                            });
+                            layer.on('click', function(e) {
+                                mymap.setView(e.latlng, 15);
+                                $("#parkSelect").val(feature.properties.park_name);
+                            });
+                            
+                            $('#visitorLocation').on('click', function() {
+                                layer.off();
+                            });
+                        }});
+
+                        lyrPoly.setStyle(polyStyle).addTo(mymap);
+
+                    },
+                    error: function(XMLHttpRequest, textStatus, errorThrown){
+                        console.log("Error: " + errorThrown + ". Please try again.");
+                        alert("Operation timed out. Please try again.")
+                    }
+                });
+
+                $.ajax({
+                    url: 'load_lines.php',
+                    type: 'POST',
+                    success: function(response) {
+                        let lyrLine=L.geoJSON(JSON.parse(response), {pointToLayer: function(feature,latlng) {
+                            return L.polyline(latlng);
+                        },
+                        onEachFeature: function(feature, layer) {
+                            layer.bindPopup('<h3>' + feature.properties.trail_name + '</h3>');
+                            layer.on('mouseover', function(e) {
+                                this.openPopup();
+                            });
+                            layer.on('mouseout', function(e) {
+                                this.closePopup();
+                            });
+                            layer.on('click', function(e) {
+                                mymap.setView(e.latlng, 15);
+                                $("#parkSelect").val(feature.properties.trail_name);
+                            });
+
+                            $('#visitorLocation').on('click', function() {
+                                layer.off();
+                            });
+                        }});
+
+                        lyrLine.setStyle(lineStyle).addTo(mymap);
+                    
+                    },
+                    error: function(XMLHttpRequest, textStatus, errorThrown){
+                        console.log("Error: " + errorThrown + ". Please try again.");
+                        alert("Operation timed out. Please try again.")
+                    }
+                });
+
+                let hikeVar = 0;
+                let runVar = 0;
+                let walkVar = 0;
+                let bikeVar = 0;
+                let picnicVar = 0;
+                let playgroundVar = 0;
+                let sportVar = 0;
+                let waterVar = 0;
+                let otherVar = 0;
+
+                $.ajax({
+                    url: 'load_visits.php',
+                    type: 'POST',
+                    success: function(response) {
+                        let lyrPoints=L.geoJSON(JSON.parse(response), {pointToLayer: function(feature,latlng) {
+                            let visitMarker = {
+                                radius: 2
+                            };
+
+                            switch (feature.properties.visit_activity) {
+                                case 'Hike':
+                                    hikeVar++;
+                                    return L.circleMarker(latlng, visitMarker).setStyle({color: 'red', fillColor: 'red', fillOpacity: '.9'}).addTo(mymap);
+                                    break;
+                                case 'Run':
+                                    runVar++;
+                                    return L.circleMarker(latlng, visitMarker).setStyle({color: '#FFAA1D', fillColor: '#FFAA1D', fillOpacity: '.9'}).addTo(mymap);                                   
+                                    break;
+                                case 'Walk':
+                                    walkVar++;
+                                    return L.circleMarker(latlng, visitMarker).setStyle({color: '#FFF000', fillColor: '#FFF000', fillOpacity: '.9'}).addTo(mymap);                                   
+                                    break;
+                                case 'Bike':
+                                    bikeVar++;
+                                    return L.circleMarker(latlng, visitMarker).setStyle({color: '#255AFF', fillColor: '#255AFF', fillOpacity: '.9'}).addTo(mymap);                                   
+                                    break;
+                                case 'Picnic':
+                                    picnicVar++;
+                                    return L.circleMarker(latlng, visitMarker).setStyle({color: '#66FF00', fillColor: '#66FF00', fillOpacity: '.9'}).addTo(mymap);                                    
+                                    break;
+                                case 'Playground':
+                                    playgroundVar++;
+                                    return L.circleMarker(latlng, visitMarker).setStyle({color: '#BF40BF', fillColor: '#BF40BF', fillOpacity: '.9'}).addTo(mymap);                                 
+                                    break;
+                                case 'Sport':
+                                    sportVar++;
+                                    return L.circleMarker(latlng, visitMarker).setStyle({color: '#84FFFD', fillColor: '#84FFFD', fillOpacity: '.9'}).addTo(mymap);                                   
+                                    break;
+                                case 'Water':
+                                    waterVar++;
+                                    return L.circleMarker(latlng, visitMarker).setStyle({color: '#966919', fillColor: '#966919', fillOpacity: '.9'}).addTo(mymap);                                    
+                                    break;
+                                case 'Other':
+                                    otherVar++;
+                                    return L.circleMarker(latlng, visitMarker).setStyle({color: 'black', fillColor: 'black', fillOpacity: '.9'}).addTo(mymap);                                   
+                                    break;
+                            };
+                        }});
+
+                        // Bar Chart
+                        const labels = [
+                            'Hike',
+                            'Run',
+                            'Walk',
+                            'Bike',
+                            'Picnic',
+                            'Playground',
+                            'Sport',
+                            'Water',
+                            'Other'
+                        ];
+
+                        const data = {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Number of Visits',
+                                backgroundColor: [
+                                    "rgba(255, 0, 0, 0.8)",
+                                    "rgb(255, 166, 77, 0.8)",
+                                    "rgb(255, 255, 102, 0.8)",
+                                    "rgb(77, 77, 255, 0.8)",
+                                    "rgb(140, 255, 102, 0.8)",
+                                    "rgb(217, 102, 255, 0.8)",
+                                    "rgb(102, 255, 255, 0.8)",
+                                    "rgb(153, 102, 0, 0.8)",
+                                    "rgb(0, 0, 0, 0.8)"
+                                ],
+                                borderColor: 'rgb(0, 0, 0, 0.5)',
+                                data: [hikeVar, runVar, walkVar, bikeVar, picnicVar, playgroundVar, sportVar, waterVar, otherVar]
+                            }]
+                        };
+
+                        const config = {
+                            type: 'bar',
+                            data: data,
+                            options: {
+                                indexAxis: 'y',
+                                layout: {
+                                    padding: 15
+                                },
+                                borderWidth: 1,
+                                plugins: {
+                                    legend: {
+                                        display: false,
+                                        labels: {
+                                            color: "white"
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        ticks: {
+                                            color: "white",
+                                            font: {
+                                                size: 14
+                                            }
+                                        }
+                                    },
+                                    x: {
+                                        ticks: {
+                                            color: "white",
+                                            font: {
+                                                size: 14
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        };
+
+                        const myBar = new Chart (
+                            document.getElementById('barChart'),
+                            config
+                        );
+                    },
+                    error: function(XMLHttpRequest, textStatus, errorThrown){
+                        console.log("Error: " + errorThrown + ". Please try again.");
+                        alert("Operation timed out. Please try again.")
+                    }
+                });
+            }
+            initialLoad++;
+        }
+
+        let markerIcon = L.icon({
+            iconUrl: 'img/marker.png',
+            iconSize: [30, 30],
+            iconAnchor: [15,30]
+        });
+
+        function dropMarker(e) {
+            mymap.once('click', function(e) {
+                let marker = new L.Marker([e.latlng.lat, e.latlng.lng], {icon: markerIcon}).addTo(mymap);
+                let visitLat = e.latlng.lat;
+                let visitLng = e.latlng.lng;
+
+                $('#visitorLocation').css('display', 'none');
+                $('#markerLat').css('display', 'block');
+                $('#markerLat').val(visitLat);
+                $('#markerLng').css('display', 'block');
+                $('#markerLng').val(visitLng);
+            });
+        }
+    </script>
+</body>
+</html>
